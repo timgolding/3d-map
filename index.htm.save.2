@@ -1,0 +1,287 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+          
+    <style>
+    body {
+      margin: 0;
+    }
+    .point-mouse {
+      fill: red;
+    }
+    #rotation {
+      position: absolute;
+      font-family: monospace;
+      padding: 10px;
+      background: rgba(255, 255, 255, .5);
+    }
+    #rotation input {
+      width: 300px;
+    }
+/*Chrome*/
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+    input[type='range'] {
+      overflow: hidden;
+      width: 80px;
+      -webkit-appearance: none;
+      background-color: #ccc;
+    }
+    
+    input[type='range']::-webkit-slider-runnable-track {
+      height: 10px;
+      -webkit-appearance: none;
+      color: #999;
+      margin-top: -1px;
+    }
+    
+    input[type='range']::-webkit-slider-thumb {
+      width: 10px;
+      -webkit-appearance: none;
+      height: 10px;
+      cursor: ew-resize;
+      background: green;
+      box-shadow: -80px 0 0 80px #999;
+    }
+
+}
+/** FF*/
+input[type="range"]::-moz-range-progress {
+  background-color: #43e5f7; 
+}
+input[type="range"]::-moz-range-track {  
+  background-color: #999;
+}
+/* IE*/
+input[type="range"]::-ms-fill-lower {
+  background-color: #43e5f7; 
+}
+    </style>
+   <script
+  src="https://code.jquery.com/jquery-3.5.1.js"
+  integrity="sha256-QWo7LDvxbWT2tbbQ97B53yJnYU3WhH/C8ycbRAkjPDc="
+  crossorigin="anonymous"></script> 
+ </head>
+  <body>
+    <div id="rotation"></div>
+    <script src="d3.v4.min.js"></script>
+    <script src="topojson.js"></script>
+    <script src="versor.min.js"></script>
+    
+    <script>
+    var svg;
+    var exp_json = [];
+    var angles = ["λ", "φ", "γ"];
+    angles.forEach(function(angle, index){
+      d3.select("#rotation").append("div")
+        .attr("class", "angle-label angle-label-" + index)
+        .html(angle + ": <span>0</span>")
+
+      d3.select("#rotation").append("input")
+        .attr("type", "range")
+        .attr("class", "angle angle-" + index)
+        .attr("min", "-180")
+        .attr("max", "180")
+        .attr("step", "1")
+        .attr("value", "0");
+    });
+
+    var width = window.innerWidth, height = window.innerHeight;
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    var projection = d3.geoOrthographic()
+        .scale(d3.min([width / 2, height / 2]))
+        .translate([width / 2, height / 2])
+        .precision(1);
+
+    var path = d3.geoPath()
+        .projection(projection);
+
+    var graticule = d3.geoGraticule()
+        .step([10, 10]);
+
+    var v0, // Mouse position in Cartesian coordinates at start of drag gesture.
+      r0, // Projection rotation as Euler angles at start.
+      q0; // Projection rotation as versor at start.
+    
+    svg.append("path")        
+        .datum(graticule)
+        .attr("class", "graticule")
+        .attr("d", path)
+        .style("fill", "blue")
+        .style("stroke", "#ccc");
+
+    var drag = d3.drag()
+      .on("start", dragstarted)
+      .on("drag", dragged)
+      .on("end", dragended);
+
+    svg.call(drag);
+
+    function dragstarted(){
+
+      var mouse_pos = d3.mouse(this);
+
+      v0 = versor.cartesian(projection.invert(mouse_pos));
+      r0 = projection.rotate();
+      q0 = versor(r0);
+
+      svg.insert("path")
+        .datum({type: "Point", coordinates: projection.invert(mouse_pos)})
+        .attr("class", "point point-mouse")
+        .attr("d", path); 
+
+    }
+
+    function dragged(){
+
+      var mouse_pos = d3.mouse(this);
+
+      var v1 = versor.cartesian(projection.rotate(r0).invert(mouse_pos)),
+      q1 = versor.multiply(q0, versor.delta(v0, v1)),
+      r1 = versor.rotation(q1);
+
+      if (r1){
+        update(r1);
+
+        svg.selectAll("path").attr("d", path);
+
+        svg.selectAll(".point-mouse")
+             .datum({type: "Point", coordinates: projection.invert(mouse_pos)});
+      }
+
+    }
+
+    function dragended(){
+      svg.selectAll(".point").remove();
+    }
+
+    d3.selectAll("input").on("input", function(){
+      // get all values
+      var nums = [];
+      d3.selectAll("input").each(function(d, i){
+        nums.push(+d3.select(this).property("value"));
+      });
+      update(nums);
+      
+      svg.selectAll("path").attr("d", path);  
+      
+    });
+
+    function update(eulerAngles){
+      angles.forEach(function(angle, index){
+        d3.select(".angle-label-" + index + " span").html(Math.round(eulerAngles[index]))
+        d3.select(".angle-" + index).property("value", eulerAngles[index])
+      });
+
+      projection.rotate(eulerAngles);
+    }
+
+   var experience = ["Algeria",
+"Angola",
+ "Brazil",
+ "China",
+ "Colombia",
+ "Cote d'Ivoire",
+ "Denmark",
+ "Egypt",
+ "Gabon",
+ "Germany",
+ "Ghana",
+ "Guinea",
+ "India",
+ "Israel",
+ "Italy",
+ "Kazakhstan",
+ "Malaysia",
+ "Mauritania",
+ "Mexico",
+ "Morocco",
+ "Namibia",
+ "Netherlands",
+ "Niger",
+ "Nigeria",
+ "Norway",
+ "Oman",
+ "Pakistan",
+ "Poland",
+ "Qatar",
+ "Romania",
+ "Russia",
+ "Senegal",
+ "South Africa",
+ "Sudan",
+ "Tanzania",
+ "Thailand",
+ "East Timor",
+ "Trinidad and Tobago",
+ "Tunisia",
+ "United Arab Emirates",
+ "United Kingdom",
+ "Venezuela",
+ "Vietnam",
+ ];
+
+
+    d3.json("World_Country_Borders_KML.geojson", function (error, cjson){
+      if (error) throw error;
+      
+      i=0;
+      for(var country of cjson.features){
+	if(experience.includes(country.properties.Name)){
+	  country.geometry.coordinates[country.geometry.coordinates.length]= country.geometry.coordinates[0];
+	  exp_json[i] = country;
+	  
+	 i++;
+         }
+      }    
+
+      // JOIN
+      svg.selectAll(".subunit")
+          .data(cjson.features)
+        .enter().append("path")
+          .attr("d", path)
+	  .style("fill", "none")
+          .style("stroke", "#999")
+          .style("stroke-width", "1px")
+    
+
+var ej = new Array();
+	for(var exp_j of exp_json){
+          	   ej[0] = exp_j;
+	   svg.selectAll(".subunit")
+          .data(ej)
+          .enter().append("path")
+          .attr("d", path).addClass("country")
+          .style("stroke", "#5aa62c")
+          .style("fill", "none")
+          .style("stroke-width", "3px")
+	}
+
+
+
+
+//	  svg.selectAll(".subunit")
+//          .data(exp_json)
+//       .enter().append("path")
+//          .attr("d", path)
+//          .style("stroke", "#5aa62c")
+//	  .style("fill", "none")
+//          .style("stroke-width", "3px")
+
+     });
+
+	
+
+
+
+
+    </script>
+  </body>
+</html>
